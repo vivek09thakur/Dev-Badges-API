@@ -1,0 +1,31 @@
+import ssl
+import urllib.error
+import urllib.request
+from typing import Optional
+
+
+class UpstreamError(Exception):
+    def __init__(self, status_code: int, detail: str):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+class HttpClient:
+    def __init__(self, timeout: int = 20):
+        self.timeout = timeout
+        # Uses the OS trust store (works behind corporate TLS proxies, unlike certifi).
+        self.ctx = ssl.create_default_context()
+
+    def get_bytes(self, url: str, headers: Optional[dict[str, str]] = None) -> bytes:
+        req = urllib.request.Request(url, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=self.ctx) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            raise UpstreamError(404 if e.code == 404 else 502, f"Upstream returned {e.code}")
+        except urllib.error.URLError as e:
+            raise UpstreamError(502, f"Upstream unreachable: {e.reason}")
+
+    def get(self, url: str, headers: Optional[dict[str, str]] = None) -> str:
+        return self.get_bytes(url, headers).decode("utf-8", errors="replace")
