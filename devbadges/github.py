@@ -35,7 +35,6 @@ class GithubAchievementsScraper:
     def parse(cls, username: str, html: str) -> GithubAchievements:
         soup = BeautifulSoup(html, "html.parser")
         seen: dict[str, Achievement] = {}
-        # The sidebar is rendered twice (desktop + mobile layouts), so dedupe by slug.
         for img in soup.select("img.achievement-badge-sidebar"):
             link = img.find_parent("a")
             href = link.get("href", "") if link else ""

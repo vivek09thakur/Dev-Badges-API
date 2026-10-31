@@ -8,8 +8,6 @@ from .models import Weather
 
 
 class GoogleWeatherScraper:
-    # Google only serves the plain-HTML weather card we parse to non-browser User-Agents,
-    # so this request is deliberately sent without browser headers.
     URL = "https://www.google.com/search?hl=en&q="
 
     def __init__(self, client: HttpClient):

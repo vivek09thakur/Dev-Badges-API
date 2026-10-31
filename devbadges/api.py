@@ -30,17 +30,17 @@ class Api:
         self.app.add_exception_handler(UpstreamError, self.upstream_error)
         self.app.add_api_route("/", self.root, methods=["GET"])
         self.app.add_api_route("/profile/{profile_id}", self.get_profile, methods=["GET"], response_model=Profile)
-        self.app.add_api_route("/profile/{profile_id}/badges.svg", self.get_badges_svg, **SVG_ROUTE)
         self.app.add_api_route(
             "/profile/{profile_id}/badges", self.get_badges, methods=["GET"], response_model=list[Badge]
         )
-        self.app.add_api_route("/github/{username}/achievements.svg", self.get_achievements_svg, **SVG_ROUTE)
+        self.app.add_api_route("/profile/{profile_id}/badges.svg", self.get_badges_svg, **SVG_ROUTE)
         self.app.add_api_route(
             "/github/{username}/achievements",
             self.get_achievements,
             methods=["GET"],
             response_model=GithubAchievements,
         )
+        self.app.add_api_route("/github/{username}/achievements.svg", self.get_achievements_svg, **SVG_ROUTE)
         self.app.add_api_route("/weather", self.get_weather, methods=["GET"], response_model=Weather)
 
     @staticmethod
@@ -83,15 +83,6 @@ class Api:
         items = [GridItem(b.image_url, b.title) for b in profile.badges if b.image_url]
         return self.svg_response(items, perline, f"Google Cloud Skills Boost badges of {profile.name or profile_id}")
 
-    def get_weather(
-        self,
-        query: str = Query(..., min_length=1, max_length=100, description="Search text, e.g. 'weather in London'"),
-    ) -> Weather:
-        result = self.weather.fetch(query)
-        if result is None:
-            raise HTTPException(status_code=404, detail="No weather card found for that query")
-        return result
-
     def get_achievements(self, username: str) -> GithubAchievements:
         try:
             name = self.github.validate_username(username)
@@ -103,6 +94,15 @@ class Api:
         data = self.get_achievements(username)
         items = [GridItem(a.image_url, a.name, f"x{a.tier}" if a.tier > 1 else None) for a in data.achievements]
         return self.svg_response(items, perline, f"GitHub achievements of {data.username}")
+
+    def get_weather(
+        self,
+        query: str = Query(..., min_length=1, max_length=100, description="Search text, e.g. 'weather in London'"),
+    ) -> Weather:
+        result = self.weather.fetch(query)
+        if result is None:
+            raise HTTPException(status_code=404, detail="No weather card found for that query")
+        return result
 
 
 def create_app() -> FastAPI:

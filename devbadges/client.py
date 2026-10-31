@@ -3,7 +3,6 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
-# Skills Boost and the badge CDNs return 403 for non-browser User-Agents.
 BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -24,7 +23,6 @@ class UpstreamError(Exception):
 class HttpClient:
     def __init__(self, timeout: int = 20):
         self.timeout = timeout
-        # Uses the OS trust store (works behind corporate TLS proxies, unlike certifi).
         self.ctx = ssl.create_default_context()
 
     def get_bytes(self, url: str, headers: Optional[dict[str, str]] = None) -> bytes:

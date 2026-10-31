@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class Badge(BaseModel):
     id: Optional[int]
     title: str
-    earned_at: Optional[str]  # ISO date (YYYY-MM-DD)
+    earned_at: Optional[str]
     earned_raw: str
     image_url: Optional[str]
     url: Optional[str]
@@ -30,7 +30,7 @@ class Weather(BaseModel):
 class Achievement(BaseModel):
     slug: str
     name: str
-    tier: int  # 1 = base badge, 2+ = the "xN" multiplier GitHub shows
+    tier: int
     image_url: str
     url: str
 
