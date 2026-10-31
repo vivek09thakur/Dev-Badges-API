@@ -5,21 +5,12 @@ from typing import Optional
 
 from bs4 import BeautifulSoup
 
-from .client import HttpClient, UpstreamError
+from .client import BROWSER_HEADERS, HttpClient, UpstreamError
 from .models import Badge, Profile
 
 
 class SkillsBoostScraper:
     BASE_URL = "https://www.skills.google/public_profiles/"
-    # The site returns 403 for non-browser User-Agents.
-    HEADERS = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
     PROFILE_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
     def __init__(self, client: HttpClient):
@@ -35,7 +26,7 @@ class SkillsBoostScraper:
 
     def _fetch(self, profile_id: str) -> Profile:
         try:
-            html = self.client.get(self.BASE_URL + profile_id, self.HEADERS)
+            html = self.client.get(self.BASE_URL + profile_id, BROWSER_HEADERS)
         except UpstreamError as e:
             if e.status_code == 404:
                 raise UpstreamError(404, "Profile not found or not public")

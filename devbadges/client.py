@@ -3,6 +3,16 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+# Skills Boost and the badge CDNs return 403 for non-browser User-Agents.
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 
 class UpstreamError(Exception):
     def __init__(self, status_code: int, detail: str):
