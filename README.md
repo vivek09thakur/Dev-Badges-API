@@ -17,8 +17,8 @@ Interactive docs at `/docs`.
 Works like skillicons.dev — one `<img>`, `perline` controls the grid width:
 
 ```html
-<img src="https://<your-deployment>/github/<username>/achievements.svg?perline=6" width="48%" align="top" />
-<img src="https://<your-deployment>/profile/<profile_id>/badges.svg?perline=6" width="48%" align="top" />
+<img src="https://dev-badges.vercel.app/github/<username>/achievements.svg?perline=6" width="48%" align="top" />
+<img src="https://dev-badges.vercel.app/profile/<profile_id>/badges.svg?perline=6" width="48%" align="top" />
 ```
 
 Badge images are downscaled to 128 px and inlined into the SVG, so it renders anywhere `<img>` does (GitHub READMEs included). GitHub tier multipliers (x2, x3…) are drawn as pills, matching the profile sidebar.
@@ -27,19 +27,4 @@ Badge images are downscaled to 128 px and inlined into the SVG, so it renders an
 ```bash
 pip install -r requirements.txt uvicorn
 uvicorn main:app --reload
-```
-
-CLI (no server): `python main.py <profile_id>`
-
-## Layout
-```
-main.py                 # entry point: app = create_app(); CLI
-devbadges/
-  models.py             # Badge, Profile, Weather, Achievement (pydantic)
-  client.py             # HttpClient + UpstreamError
-  profiles.py           # SkillsBoostScraper
-  github.py             # GithubAchievementsScraper
-  svg.py                # BadgeGridRenderer (shared skillicons-style SVG grid)
-  weather.py            # GoogleWeatherScraper
-  api.py                # Api (routes) + create_app()
 ```
