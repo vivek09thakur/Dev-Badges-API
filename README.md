@@ -1,4 +1,4 @@
-x# DevBadges API
+# DevBadges API
 Read-only API for showing off your dev profile: Google Cloud Skills Boost badges (JSON), GitHub achievements (JSON or an embeddable SVG), plus a Google weather-card scraper.
 
 ## Endpoints
