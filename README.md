@@ -1,4 +1,4 @@
-# DevBadges API
+x# DevBadges API
 Read-only API for showing off your dev profile: Google Cloud Skills Boost badges (JSON), GitHub achievements (JSON or an embeddable SVG), plus a Google weather-card scraper.
 
 ## Endpoints
@@ -14,7 +14,6 @@ Read-only API for showing off your dev profile: Google Cloud Skills Boost badges
 Interactive docs at `/docs`.
 
 ## Embed badges in a README
-Works like skillicons.dev — one `<img>`, `perline` controls the grid width:
 
 ```html
 <img src="https://dev-badges.vercel.app/github/<username>/achievements.svg?perline=6" width="48%" align="top" />
