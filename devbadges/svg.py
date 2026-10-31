@@ -1,5 +1,6 @@
 import base64
 import io
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import NamedTuple, Optional
 from xml.sax.saxutils import escape, quoteattr
@@ -15,51 +16,89 @@ class GridItem(NamedTuple):
     label: Optional[str] = None
 
 
+class Icon(NamedTuple):
+    data_uri: str
+    width: int
+    card: bool
+
+
 class BadgeGridRenderer:
-    ICON = 64
+    TILE = 64
+    PAD = 8
     GAP = 10
-    ICON_PX = ICON * 2
+    RADIUS = 15
+    MAX_ASPECT = 2
+    # Same tile colours skillicons.dev uses
+    THEMES = {"dark": "#242938", "light": "#F4F2ED"}
     FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
 
     def __init__(self, client: HttpClient):
         self.client = client
-        self.icon_data_uri = lru_cache(maxsize=256)(self._icon_data_uri)
+        self.icon = lru_cache(maxsize=256)(self._icon)
 
-    def _icon_data_uri(self, url: str) -> str:
-        img = Image.open(io.BytesIO(self.client.get_bytes(url, BROWSER_HEADERS)))
-        img.thumbnail((self.ICON_PX, self.ICON_PX), Image.Resampling.LANCZOS)
+    def _icon(self, url: str) -> Icon:
+        img = Image.open(io.BytesIO(self.client.get_bytes(url, BROWSER_HEADERS))).convert("RGBA")
+        img = img.crop(img.getchannel("A").getbbox() or (0, 0, *img.size))
+        w, h = img.size
+        # Opaque corners = artwork is a card that should fill its tile; transparent = icon that sits on a tile
+        card = all(img.getpixel(p)[3] >= 250 for p in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)))
+        aspect = min(max(w / h, 1 / self.MAX_ASPECT), self.MAX_ASPECT)
+        img.thumbnail((2 * self.TILE * self.MAX_ASPECT, 2 * self.TILE), Image.Resampling.LANCZOS)
         buf = io.BytesIO()
-        img.convert("RGBA").save(buf, format="PNG", optimize=True)
-        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        img.save(buf, format="PNG", optimize=True)
+        data_uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        return Icon(data_uri, round(self.TILE * aspect), card)
 
-    def render(self, items: list[GridItem], perline: int, aria_label: str) -> str:
-        cols = max(1, min(perline, len(items)))
-        rows = (len(items) + cols - 1) // cols if items else 1
-        cell = self.ICON + self.GAP
-        width = cols * cell + self.GAP
-        height = rows * cell + self.GAP
+    def render(self, items: list[GridItem], perline: int, aria_label: str, theme: str = "dark") -> str:
+        fill = self.THEMES[theme]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            icons = list(pool.map(self.icon, [item.image_url for item in items]))
+        tiles = list(zip(items, icons))
+        rows = [tiles[i : i + perline] for i in range(0, len(tiles), perline)]
+        row_h = self.TILE + self.GAP
+        width = self.GAP + max((sum(icon.width + self.GAP for _, icon in row) for row in rows), default=row_h)
+        height = self.GAP + max(len(rows), 1) * row_h
         parts = [
             f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
             f'width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
             f'role="img" aria-label={quoteattr(aria_label)}>'
         ]
-        for i, item in enumerate(items):
-            x = self.GAP + (i % cols) * cell
-            y = self.GAP + (i // cols) * cell
-            parts.append(
-                f"<g><title>{escape(item.title)}</title>"
-                f'<image x="{x}" y="{y}" width="{self.ICON}" height="{self.ICON}" '
-                f'preserveAspectRatio="xMidYMid meet" xlink:href="{self.icon_data_uri(item.image_url)}"/>'
-            )
-            if item.label:
-                parts.append(self._pill(x, y, item.label))
-            parts.append("</g>")
+        card_widths = sorted({icon.width for icon in icons if icon.card})
+        if card_widths:
+            parts.append("<defs>")
+            for w in card_widths:
+                parts.append(f'<clipPath id="c{w}"><rect width="{w}" height="{self.TILE}" rx="{self.RADIUS}"/></clipPath>')
+            parts.append("</defs>")
+        for r, row in enumerate(rows):
+            x, y = self.GAP, self.GAP + r * row_h
+            for item, icon in row:
+                parts.append(f'<g transform="translate({x} {y})"><title>{escape(item.title)}</title>')
+                parts.append(self._tile(icon, fill))
+                if item.label:
+                    parts.append(self._pill(icon.width, item.label))
+                parts.append("</g>")
+                x += icon.width + self.GAP
         parts.append("</svg>")
         return "".join(parts)
 
-    def _pill(self, x: int, y: int, label: str) -> str:
+    def _tile(self, icon: Icon, fill: str) -> str:
+        w, h = icon.width, self.TILE
+        if icon.card:
+            return (
+                f'<image width="{w}" height="{h}" preserveAspectRatio="xMidYMid slice" '
+                f'clip-path="url(#c{w})" xlink:href="{icon.data_uri}"/>'
+                f'<rect x=".5" y=".5" width="{w - 1}" height="{h - 1}" rx="{self.RADIUS - 0.5}" '
+                f'fill="none" stroke="#000" stroke-opacity=".12"/>'
+            )
+        return (
+            f'<rect width="{w}" height="{h}" rx="{self.RADIUS}" fill="{fill}"/>'
+            f'<image x="{self.PAD}" y="{self.PAD}" width="{w - 2 * self.PAD}" height="{h - 2 * self.PAD}" '
+            f'preserveAspectRatio="xMidYMid meet" xlink:href="{icon.data_uri}"/>'
+        )
+
+    def _pill(self, tile_w: int, label: str) -> str:
         w, h = 10 + 7 * len(label), 18
-        px, py = x + self.ICON - w + 4, y + self.ICON - h + 4
+        px, py = tile_w - w - 3, self.TILE - h - 3
         return (
             f'<rect x="{px}" y="{py}" width="{w}" height="{h}" rx="9" fill="#f6f8fa" stroke="#d0d7de"/>'
             f'<text x="{px + w / 2}" y="{py + h / 2 + 0.5}" font-family="{self.FONT}" font-size="11" '

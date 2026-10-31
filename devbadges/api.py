@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -9,7 +11,9 @@ from .profiles import SkillsBoostScraper
 from .svg import BadgeGridRenderer, GridItem
 from .weather import GoogleWeatherScraper
 
+Theme = Literal["dark", "light"]
 PERLINE = Query(6, ge=1, le=20, description="Badges per row, like skillicons.dev")
+THEME = Query("dark", description="Tile background, like skillicons.dev")
 SVG_ROUTE = {"methods": ["GET"], "response_class": Response, "responses": {200: {"content": {"image/svg+xml": {}}}}}
 
 
@@ -54,16 +58,16 @@ class Api:
             "endpoints": [
                 "/profile/{profile_id}",
                 "/profile/{profile_id}/badges",
-                "/profile/{profile_id}/badges.svg?perline=6",
+                "/profile/{profile_id}/badges.svg?perline=6&theme=dark",
                 "/github/{username}/achievements",
-                "/github/{username}/achievements.svg?perline=6",
+                "/github/{username}/achievements.svg?perline=6&theme=dark",
                 "/weather?query=<text>",
             ],
         }
 
-    def svg_response(self, items: list[GridItem], perline: int, aria_label: str) -> Response:
+    def svg_response(self, items: list[GridItem], perline: int, theme: Theme, aria_label: str) -> Response:
         return Response(
-            content=self.svg.render(items, perline, aria_label),
+            content=self.svg.render(items, perline, aria_label, theme),
             media_type="image/svg+xml",
             headers={"Cache-Control": "public, max-age=3600"},
         )
@@ -78,10 +82,11 @@ class Api:
     def get_badges(self, profile_id: str) -> list[Badge]:
         return self.get_profile(profile_id).badges
 
-    def get_badges_svg(self, profile_id: str, perline: int = PERLINE) -> Response:
+    def get_badges_svg(self, profile_id: str, perline: int = PERLINE, theme: Theme = THEME) -> Response:
         profile = self.get_profile(profile_id)
         items = [GridItem(b.image_url, b.title) for b in profile.badges if b.image_url]
-        return self.svg_response(items, perline, f"Google Cloud Skills Boost badges of {profile.name or profile_id}")
+        label = f"Google Cloud Skills Boost badges of {profile.name or profile_id}"
+        return self.svg_response(items, perline, theme, label)
 
     def get_achievements(self, username: str) -> GithubAchievements:
         try:
@@ -90,10 +95,10 @@ class Api:
             raise HTTPException(status_code=400, detail=str(e))
         return self.github.fetch(name)
 
-    def get_achievements_svg(self, username: str, perline: int = PERLINE) -> Response:
+    def get_achievements_svg(self, username: str, perline: int = PERLINE, theme: Theme = THEME) -> Response:
         data = self.get_achievements(username)
         items = [GridItem(a.image_url, a.name, f"x{a.tier}" if a.tier > 1 else None) for a in data.achievements]
-        return self.svg_response(items, perline, f"GitHub achievements of {data.username}")
+        return self.svg_response(items, perline, theme, f"GitHub achievements of {data.username}")
 
     def get_weather(
         self,
