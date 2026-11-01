@@ -1,41 +1,38 @@
 import re
-from functools import lru_cache
 
-from bs4 import BeautifulSoup
-
-from .client import BROWSER_HEADERS, HttpClient, UpstreamError
+from .client import UpstreamError
+from .common import Scraper, make_soup
+from .constants import GITHUB_URL, GITHUB_USERNAME_RE
 from .models import Achievement, GithubAchievements
 
 
-class GithubAchievementsScraper:
-    BASE_URL = "https://github.com/"
-    USERNAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){0,38}$", re.IGNORECASE)
+class AchievementsHidden(UpstreamError):
+    """The profile exists but lists no achievements: GitHub's 'Show Achievements on my profile' is off."""
 
-    def __init__(self, client: HttpClient):
-        self.client = client
-        self.fetch = lru_cache(maxsize=256)(self._fetch)
+    def __init__(self, username: str):
+        super().__init__(
+            404,
+            f"github.com/{username} shows no achievements. Turn on 'Show Achievements on my profile' "
+            "in GitHub Settings > Public profile.",
+        )
 
-    @classmethod
-    def validate_username(cls, username: str) -> str:
-        name = username.strip()
-        if not cls.USERNAME_RE.match(name):
-            raise ValueError("username must be a valid GitHub username")
-        return name
+
+class GithubAchievementsScraper(Scraper[GithubAchievements]):
+    BASE_URL = GITHUB_URL
+    ID_RE = GITHUB_USERNAME_RE
+    ID_ERROR = "username must be a valid GitHub username"
+    NOT_FOUND = "GitHub user not found"
 
     def _fetch(self, username: str) -> GithubAchievements:
-        try:
-            html = self.client.get(f"{self.BASE_URL}{username}?tab=achievements", BROWSER_HEADERS)
-        except UpstreamError as e:
-            if e.status_code == 404:
-                raise UpstreamError(404, "GitHub user not found")
-            raise
-        return self.parse(username, html)
+        result = super()._fetch(username)
+        if not result.achievements:
+            raise AchievementsHidden(username)
+        return result
 
     @classmethod
     def parse(cls, username: str, html: str) -> GithubAchievements:
-        soup = BeautifulSoup(html, "html.parser")
         seen: dict[str, Achievement] = {}
-        for img in soup.select("img.achievement-badge-sidebar"):
+        for img in make_soup(html).select("img.achievement-badge-sidebar"):
             link = img.find_parent("a")
             href = link.get("href", "") if link else ""
             m = re.search(r"achievement=([a-z0-9-]+)", href)

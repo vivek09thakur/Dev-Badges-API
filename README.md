@@ -22,6 +22,8 @@ Interactive docs at `/docs`.
 
 Badge images are downscaled to 128 px and inlined into the SVG, so it renders anywhere `<img>` does (GitHub READMEs included). GitHub tier multipliers (x2, x3…) are drawn as pills, matching the profile sidebar.
 
+GitHub only exposes achievements while **Show Achievements on my profile** is enabled (GitHub Settings > Public profile). If it's off, `/github/{username}/achievements` returns `404` saying so, and the `.svg` renders that message instead of a broken image.
+
 ## Run locally
 ```bash
 pip install -r requirements.txt uvicorn

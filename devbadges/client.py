@@ -5,14 +5,7 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
-BROWSER_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+from .constants import HTTP_TIMEOUT
 
 
 class UpstreamError(Exception):
@@ -23,7 +16,6 @@ class UpstreamError(Exception):
 
 
 def _create_connection(address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None):
-    # socket.create_connection, but IPv4 first: a broken IPv6 route otherwise costs a full timeout per AAAA record
     infos = socket.getaddrinfo(*address, type=socket.SOCK_STREAM)
     infos.sort(key=lambda info: info[0] != socket.AF_INET)
     err: Optional[OSError] = None
@@ -54,7 +46,7 @@ class _Ipv4FirstHttpsHandler(urllib.request.HTTPSHandler):
 
 
 class HttpClient:
-    def __init__(self, timeout: int = 20):
+    def __init__(self, timeout: int = HTTP_TIMEOUT):
         self.timeout = timeout
         self.opener = urllib.request.build_opener(_Ipv4FirstHttpsHandler(context=ssl.create_default_context()))
 

@@ -1,24 +1,22 @@
 import urllib.parse
 from typing import Optional
 
-from bs4 import BeautifulSoup
-
 from .client import HttpClient
+from .common import make_soup
+from .constants import GOOGLE_SEARCH_URL
 from .models import Weather
 
 
 class GoogleWeatherScraper:
-    URL = "https://www.google.com/search?hl=en&q="
-
     def __init__(self, client: HttpClient):
         self.client = client
 
     def fetch(self, query: str) -> Optional[Weather]:
-        return self.parse(self.client.get(self.URL + urllib.parse.quote_plus(query)))
+        return self.parse(self.client.get(GOOGLE_SEARCH_URL + urllib.parse.quote_plus(query)))
 
     @staticmethod
     def parse(html: str) -> Optional[Weather]:
-        soup = BeautifulSoup(html, "html.parser")
+        soup = make_soup(html)
         temp = soup.select_one("div.BNeawe.iBp4i.AP7Wnd")
         desc = soup.select_one("div.BNeawe.tAd8D.AP7Wnd")
         if not temp or not desc:

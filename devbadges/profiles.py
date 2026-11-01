@@ -1,37 +1,21 @@
 import datetime as dt
 import re
-from functools import lru_cache
 from typing import Optional
 
-from bs4 import BeautifulSoup
-
-from .client import BROWSER_HEADERS, HttpClient, UpstreamError
+from .common import Scraper, make_soup
+from .constants import SKILLS_BOOST_ID_RE, SKILLS_BOOST_URL
 from .models import Badge, Profile
 
 
-class SkillsBoostScraper:
-    BASE_URL = "https://www.skills.google/public_profiles/"
-    PROFILE_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-
-    def __init__(self, client: HttpClient):
-        self.client = client
-        self.fetch = lru_cache(maxsize=256)(self._fetch)
+class SkillsBoostScraper(Scraper[Profile]):
+    BASE_URL = SKILLS_BOOST_URL
+    ID_RE = SKILLS_BOOST_ID_RE
+    ID_ERROR = "profile_id must be a UUID"
+    NOT_FOUND = "Profile not found or not public"
 
     @classmethod
-    def validate_id(cls, profile_id: str) -> str:
-        pid = profile_id.strip().lower()
-        if not cls.PROFILE_ID_RE.match(pid):
-            raise ValueError("profile_id must be a UUID")
-        return pid
-
-    def _fetch(self, profile_id: str) -> Profile:
-        try:
-            html = self.client.get(self.BASE_URL + profile_id, BROWSER_HEADERS)
-        except UpstreamError as e:
-            if e.status_code == 404:
-                raise UpstreamError(404, "Profile not found or not public")
-            raise
-        return self.parse(profile_id, html)
+    def validate(cls, profile_id: str) -> str:
+        return super().validate(profile_id.lower())
 
     @staticmethod
     def parse_earned_date(text: str) -> Optional[str]:
@@ -45,7 +29,7 @@ class SkillsBoostScraper:
 
     @classmethod
     def parse(cls, profile_id: str, html: str) -> Profile:
-        soup = BeautifulSoup(html, "html.parser")
+        soup = make_soup(html)
 
         h1 = soup.select_one("main h1")
         avatar = soup.select_one("ql-avatar.profile-avatar")

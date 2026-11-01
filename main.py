@@ -12,4 +12,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("usage: python main.py <profile_id>")
     scraper = SkillsBoostScraper(HttpClient())
-    print(json.dumps(scraper.fetch(scraper.validate_id(sys.argv[1])).model_dump(), indent=2))
+    print(json.dumps(scraper.fetch(scraper.validate(sys.argv[1])).model_dump(), indent=2))
